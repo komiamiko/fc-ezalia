@@ -69,3 +69,17 @@ def make_initial_vertex_map():
     pxy += vxy * step_size
   # done simulations
   return pxy
+
+def make_triangulation(vertices):
+    """
+    Make the Delaunay triangulation for the vertices.
+    Does not compute edges and some other useful information.
+    
+    Returns 2 arrays:
+    - triangles as vertex indices, with points in
+        counterclockwise order, shape (tris, 3)
+    - neighbours as triangle indices, the neighbouring
+        triangle opposite to each vertex, shape (tris, 3)
+    """
+    dtri = spatial.Delaunay(vertices)
+    return dtri.simplices, dtri.neighbors
