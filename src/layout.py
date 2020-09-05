@@ -75,11 +75,58 @@ def make_triangulation(vertices):
     Make the Delaunay triangulation for the vertices.
     Does not compute edges and some other useful information.
     
-    Returns 2 arrays:
+    Returns 3 arrays:
     - triangles as vertex indices, with points in
         counterclockwise order, shape (tris, 3)
     - neighbours as triangle indices, the neighbouring
         triangle opposite to each vertex, shape (tris, 3)
+    - edges as vertex indices, with points in counterclockwise order,
+        -1 to signal no vertex, shape (verts, max_edges)
     """
+    # get stats
+    num_points, _ = vertices.shape
+    # compute triangulation
     dtri = spatial.Delaunay(vertices)
-    return dtri.simplices, dtri.neighbors
+    tverts = dtri.simplices
+    tedges = dtri.neighbors
+    # build edge map
+    vedges = []
+    for iv, it in enumerate(dtri.vertex_to_simplex):
+        ive = []
+        jt = it
+        # roll around
+        while True:
+            # find index of this vertex
+            jtv = np.where(tverts[jt]==iv)[0][0]
+            # next triangle over
+            kt = tedges[jt][(jtv-1)%3]
+            # stop if we're back where we started or reached the outside
+            if kt == it or kt == -1:
+                break
+            # check the next one
+            jt = kt
+        # roll the other way and record edges as we go
+        it = jt
+        while True:
+            # find index of this vertex
+            jtv = np.where(tverts[jt]==iv)[0][0]
+            # record an edge
+            ive.append(tverts[jt][(jtv+1)%3])
+            # next triangle over
+            kt = tedges[jt][(jtv+1)%3]
+            # stop if we're back where we started or reached the outside
+            if kt == it or kt == -1:
+                if kt == -1:
+                    # not a loop, we also need to record the last edge
+                    ive.append(tverts[jt][(jtv-1)%3])
+                break
+            # check the next one
+            jt = kt
+        vedges.append(ive)
+    # pad all edge arrays to max length
+    max_edges = max(map(len, vedges))
+    for ive in vedges:
+        ive.extend([-1] * (max_edges - len(ive)))
+    # convert edge to array
+    vedges = np.array(vedges)
+    return tverts, tedges, vedges
