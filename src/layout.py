@@ -26,7 +26,7 @@ def make_initial_vertex_map():
   shape (N,) which is the repulsion factor for each vertex.
   """
   # randomly determine number of vertices
-  num_points = random.randint(16, 31) # TODO find good numbers for this
+  num_points = random.randint(14, 24) # TODO find good numbers for this
   # put view bounds in a local variable
   boundx, boundy = VIEW_BOUNDS
   # generate initial locations
@@ -36,7 +36,10 @@ def make_initial_vertex_map():
   rf = npr.uniform(1, 2, (num_points, 1))
   # simulate like particles
   vxy = np.zeros((num_points, 2), dtype=np.float64)
-  sim_iters = 100
+  sim_iters = 2000
+  step_size = 0.25
+  vdecay = 0.9 ** step_size
+  ref_dist = 600 / num_points
   for _ in range(sim_iters):
     # calculate acceleration for this tick
     axy = np.zeros((num_points, 2), dtype=np.float64)
@@ -50,7 +53,7 @@ def make_initial_vertex_map():
     rfxy *= rf.reshape((num_points, 1, 1))
     rfxy *= rf.reshape((1, num_points, 1))
     rfxy = np.sum(rfxy, axis=1)
-    axy += rfxy
+    axy += rfxy * ref_dist ** 2
     # boundary spring-like force
     bxy = np.array([boundx, boundy]).reshape((1, 2))
     bfxy = -bxy - pxy
@@ -60,9 +63,9 @@ def make_initial_vertex_map():
     bfxy = np.minimum(bfxy, 0)
     axy += bfxy
     # decay velocity and apply acceleration
-    vxy *= 0.9
-    vxy += axy
+    vxy *= vdecay
+    vxy += axy * step_size
     # apply velocity
-    pxy += vxy
+    pxy += vxy * step_size
   # done simulations
   return pxy
