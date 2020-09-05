@@ -6,7 +6,7 @@ import enum
 
 VIEW_BOUNDS = (1286, 725)
 
-class FCObjectTraits(enum.Enum):
+class FCObjectTraits(object):
     """
     Mask bits for various traits of FC object types
     """
