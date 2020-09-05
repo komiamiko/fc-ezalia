@@ -8,6 +8,7 @@ Other than the required Python packages, it is self contained (after compilation
 """
 
 # EZALIA-IMPORT game_info
+# EZALIA-IMPORT layout
 
 def main():
     """

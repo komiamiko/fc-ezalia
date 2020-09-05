@@ -5,6 +5,7 @@ Compiles all source files into a self-contained Python file for easy distributio
 """
 
 import io
+import re
 
 class IOCapture(io.StringIO):
     def __init__(self, *args, **kwargs):
@@ -21,24 +22,33 @@ def compile_file(src, dst):
     :param src: Source path
     :param dst: Destination path or file-like object
     """
-    import io
-    import re
     # read in the entire source
     with open(src, 'r') as file:
         src_raw = file.read()
     # split into lines to work on it
     src_lines = src_raw.splitlines()
     # build up the result
+    skip_imports = set()
     dst_blobs = []
     for src_line in src_lines:
+        # check for import skip macro
+        match = re.match(r'\s*#\s*EZALIA-IMPORT-SKIP\s+(\w+)', src_line)
+        if match is not None:
+            import_name, = match.groups()
+            skip_imports.add(import_name)
+            continue
         # check for import macro
         match = re.match(r'\s*#\s*EZALIA-IMPORT\s+(\w+)', src_line)
         if match is not None:
             import_name, = match.groups()
+            if import_name in skip_imports:
+                continue
+            skip_imports.add(import_name)
             import_path = src.parent / (import_name + '.py')
             imported_buffer = IOCapture()
             compile_file(import_path, imported_buffer)
             imported_raw = imported_buffer.capture
+            dst_blobs.append(f'# EZALIA-IMPORT-SKIP {import_name}')
             dst_blobs.append(imported_raw)
             continue
         # nothing special to do
