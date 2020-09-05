@@ -4,6 +4,16 @@ Simple preprocessor/compiler for Ezalia.
 Compiles all source files into a self-contained Python file for easy distribution.
 """
 
+import io
+
+class IOCapture(io.StringIO):
+    def __init__(self, *args, **kwargs):
+        io.StringIO.__init__(self, *args, **kwargs)
+        self.capture = None
+    def close(self):
+        self.capture = self.getvalue()
+        io.StringIO.close(self)
+
 def compile_file(src, dst):
     """
     Preprocess/compile a file, and write the result to a different file.
@@ -26,9 +36,9 @@ def compile_file(src, dst):
         if match is not None:
             import_name, = match.groups()
             import_path = src.parent / (import_name + '.py')
-            imported_buffer = io.StringIO()
+            imported_buffer = IOCapture()
             compile_file(import_path, imported_buffer)
-            imported_raw = imported_buffer.getvalue()
+            imported_raw = imported_buffer.capture
             dst_blobs.append(imported_raw)
             continue
         # nothing special to do
