@@ -11,6 +11,7 @@ import numpy.random as npr
 import scipy.spatial as spatial
 import random
 
+# EZALIA-IMPORT algorithm
 # EZALIA-IMPORT game_info
 
 def make_initial_vertex_map():
@@ -130,3 +131,70 @@ def make_triangulation(vertices):
     # convert edge to array
     vedges = np.array(vedges)
     return tverts, tedges, vedges
+
+def make_graph(vertices, tverts, tedges, vedges):
+    """
+    Make a layout graph from the triangulation.
+    Some walls will be open pathways, others will be walls.
+    
+    Returns 2 arrays:
+    - closed edge mask for triangle neighbors
+    - closed edge mask for vertex adjacency list
+    """
+    num_points = vertices.shape[0]
+    num_tris = tverts.shape[0]
+    # build a set of all edges as (tri, vert, tri, vert)
+    #   ______1_
+    #  X     /  \_
+    #   \  2 |    \_
+    #    \   /  0   \_
+    #     \ /________ j
+    #      3
+    # it is guaranteed that E[0] < E[2]
+    all_edges = set()
+    for it, tri in enumerate(tverts):
+        for j in range(3):
+            # check that neighbor exists
+            jt = tedges[it][j]
+            if jt == -1:
+                continue
+            # ensure it < jt so we don't get repeats
+            if jt < it:
+                continue
+            edge = (it, tri[(j+1)%3], jt, tri[(j-1)%3])
+            all_edges.add(edge)
+    # now add in the edge length:
+    # (length, tri, vert, tri, vert)
+    all_edges = [(npl.norm(vertices[edge[3]] - vertices[edge[1]]),) + edge for edge in all_edges]
+    # sort, put longest edge first and shortest edge last
+    all_edges.sort(reverse=True)
+    # add 1 edge at a time, if the regions are not already connected
+    tri_uf = UnionFind(num_tris)
+    rem_edges = list(all_edges)
+    bias_exp = 3 # used to control how much it prefers long edges
+    vedges_closed = set()
+    while rem_edges:
+        edge_index = int(len(rem_edges) * random.uniform(0, 1) ** bias_exp)
+        d, t0, v0, t1, v1 = edge = rem_edges.pop(edge_index)
+        # edge will be closed if region is already connected
+        # edges are open by default, we need to specify when it is closed
+        if tri_uf.test_and_join(t0, t1):
+            u0, u1 = sorted([v0, v1])
+            vedges_closed.add((u0, u1))
+    # make the triangle neighbors mask
+    tedge_mask = np.zeros(tedges.shape, dtype=bool)
+    for it, tri in enumerate(tverts):
+        for j in range(3):
+            u0, u1 = sorted([tri[(j+1)%3], tri[(j-1)%3]])
+            tedge_mask[it][j] = (u0, u1) in vedges_closed
+    # make the vertex edge mask
+    vedge_mask = np.zeros(vedges.shape, dtype=bool)
+    for iv, es in enumerate(vedges):
+        for j, jv in enumerate(es):
+            if jv == -1:
+                continue
+            u0, u1 = sorted([iv, jv])
+            vedge_mask[iv][j] = (u0, u1) in vedges_closed
+    # done
+    return tedge_mask, vedge_mask
+    
